@@ -1,0 +1,323 @@
+void LemonScene::generateTexture(GLuint _pid)
+{
+  GLuint FramebufferName = 5;
+  glGenFramebuffers(1, &FramebufferName);
+  glBindFramebuffer(GL_FRAMEBUFFER, FramebufferName);
+
+  // The texture we're going to render to
+  GLuint renderedTexture = 0;
+  glGenTextures(1, &renderedTexture);
+
+  // "Bind" the newly created texture : all future texture functions will modify this texture
+  glBindTexture(GL_TEXTURE_2D, renderedTexture);
+
+  // Give an empty image to OpenGL ( the last "0" )
+  glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB, 512, 512, 0,GL_RGB, GL_UNSIGNED_BYTE, 0);
+
+  // Poor filtering. Needed !
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+  // The depth buffer
+  //GLuint depthrenderbuffer;
+  //glGenRenderbuffers(1, &depthrenderbuffer);
+  //glBindRenderbuffer(GL_RENDERBUFFER, depthrenderbuffer);
+  //glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 1024, 768);
+  //glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthrenderbuffer);
+
+  // Set "renderedTexture" as our colour attachement #0
+  glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, renderedTexture, 0);
+
+  // Set the list of draw buffers.
+  GLenum DrawBuffers[1] = {GL_COLOR_ATTACHMENT0};
+  glDrawBuffers(1, DrawBuffers); // "1" is the size of DrawBuffers
+
+  // Always check that our framebuffer is ok
+  if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+  {
+    cleanupGen(5,0);
+    return;
+  }
+
+
+  // The fullscreen quad's FBO
+  GLuint quad_VertexArrayID = 5;
+  glGenVertexArrays(1, &quad_VertexArrayID);
+  glBindVertexArray(quad_VertexArrayID);
+
+  static const GLfloat g_quad_vertex_buffer_data[] = {
+      -1.0f, -1.0f, 0.0f,
+      1.0f, -1.0f, 0.0f,
+      -1.0f,  1.0f, 0.0f,
+      -1.0f,  1.0f, 0.0f,
+      1.0f, -1.0f, 0.0f,
+      1.0f,  1.0f, 0.0f,
+  };
+
+  GLuint quad_vertexbuffer = 7;
+  glGenBuffers(1, &quad_vertexbuffer);
+  glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(g_quad_vertex_buffer_data), g_quad_vertex_buffer_data, GL_STATIC_DRAW);
+
+  // Create and compile our GLSL program from the shaders
+  //GLuint quad_programID = LoadShaders( "texgen_vert", "texgen_frag" );
+  //GLuint texID = glGetUniformLocation(quad_programID, "renderedTexture");
+  //GLuint timeID = glGetUniformLocation(quad_programID, "time");
+
+
+  // Render to our framebuffer
+  glBindFramebuffer(GL_FRAMEBUFFER, FramebufferName);
+  glViewport(0,0,512,512); // Render on the whole framebuffer, complete from the lower left corner to the upper right
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glDeleteFramebuffers(1, &FramebufferName);
+}
+
+void LemonScene::cleanupGen(GLuint _FBO, GLuint _tex)
+{
+  //Delete resources
+   glDeleteTextures(1, &_tex);
+   //glDeleteRenderbuffersEXT(1, &depth_rb);
+   //glDeleteBuffers(1, _VB);
+   //Bind 0, which means render to back buffer, as a result, fb is unbound
+   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+   glDeleteFramebuffers(1, &_FBO);
+}
+
+void LemonScene::generateTexture(GLuint _pid)
+{
+  GLuint color_tex=6;
+  GLuint fb=5;
+  GLuint depth_rb=5;
+  //RGBA8 2D texture, 24 bit depth texture, 256x256
+     glGenTextures(1, &color_tex);
+     glBindTexture(GL_TEXTURE_2D, color_tex);
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+     //NULL means reserve texture memory, but texels are undefined
+     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 256, 256, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+     //-------------------------
+     glGenFramebuffersEXT(1, &fb);
+     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fb);
+     //Attach 2D texture to this FBO
+     glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, color_tex, 0);
+     //-------------------------
+     glGenRenderbuffersEXT(1, &depth_rb);
+     glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, depth_rb);
+     glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT24, 256, 256);
+     //-------------------------
+     //Attach depth buffer to FBO
+     glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, depth_rb);
+     //-------------------------
+     //Does the GPU support current FBO configuration?
+     GLenum status;
+     status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+     switch(status)
+     {
+       case GL_FRAMEBUFFER_COMPLETE_EXT:{std::cout<<"good";break;}
+       default:{std::cout<<"fb inclomplete";break;}
+     }
+     //-------------------------
+     //and now you can render to GL_TEXTURE_2D
+     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fb);
+     //glClearColor(0.0, 0.0, 0.0, 0.0);
+     //glClearDepth(1.0f);
+     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+     //-------------------------
+     glViewport(0, 0, 256, 256);
+     glMatrixMode(GL_PROJECTION);
+     glLoadIdentity();
+     glOrtho(0.0, 256.0, 0.0, 256.0, -1.0, 1.0);
+     glMatrixMode(GL_MODELVIEW);
+     glLoadIdentity();
+     //-------------------------
+     //glDisable(GL_TEXTURE_2D);
+     //glDisable(GL_BLEND);
+     //glEnable(GL_DEPTH_TEST);
+
+     // The fullscreen quad's FBO
+     GLuint quad_VertexArrayID = 5;
+     glGenVertexArrays(1, &quad_VertexArrayID);
+     glBindVertexArray(quad_VertexArrayID);
+
+     static const GLfloat g_quad_vertex_buffer_data[] = {
+         -1.0f, -1.0f, 0.0f,
+         1.0f, -1.0f, 0.0f,
+         -1.0f,  1.0f, 0.0f,
+         -1.0f,  1.0f, 0.0f,
+         1.0f, -1.0f, 0.0f,
+         1.0f,  1.0f, 0.0f,
+     };
+
+     GLuint quad_vertexbuffer = 7;
+     glGenBuffers(1, &quad_vertexbuffer);
+     glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
+     glBufferData(GL_ARRAY_BUFFER, sizeof(g_quad_vertex_buffer_data), g_quad_vertex_buffer_data, GL_STATIC_DRAW);
+
+     ngl::VAOPrimitives *prim=ngl::VAOPrimitives::instance();
+     prim->createTrianglePlane("planeTest", 256.0, 256.0, 2, 2, ngl::Vec3(0.0,0.0,1.0));
+     prim->draw("planeTest");
+
+     GLubyte pixels[4*4*4];
+     glReadPixels(0, 0, 4, 4, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+
+     //Bind 0, which means render to back buffer
+     //glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+
+     //Delete resources
+     //glDeleteTextures(1, &color_tex);
+     //glDeleteRenderbuffersEXT(1, &depth_rb);
+     //Bind 0, which means render to back buffer, as a result, fb is unbound
+     //glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+     //glDeleteFramebuffersEXT(1, &fb);
+}
+
+void LemonScene::initTextureWriter(GLuint _texID, GLuint _FBO, GLuint _RBO)
+{
+  glGenFramebuffers(1, &_FBO);
+  glBindFramebuffer(GL_FRAMEBUFFER, _FBO);
+  if(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE)
+    std::cout<<"FBO status complete\n";
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glDeleteFramebuffers(1, &_FBO);
+
+  glActiveTexture(GL_TEXTURE0 + _texID);
+  glGenTextures(1, &_texID);
+  glBindTexture(GL_TEXTURE_2D, _texID);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 512, 512, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _texID, 0);
+
+
+  glGenRenderbuffers(1, &_RBO);
+  glBindRenderbuffer(GL_RENDERBUFFER, _RBO);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 512, 512);
+  glBindRenderbuffer(GL_RENDERBUFFER, 0);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, _RBO);
+
+  if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+          std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void LemonScene::initTexture(const GLuint& texUnit, GLuint &texId, const char *filename) {
+    // Set our active texture unit
+    glActiveTexture(GL_TEXTURE0 + texUnit);
+
+    // Load up the image using NGL routine
+    ngl::Image img(filename);
+
+    // Create storage for our new texture
+    glGenTextures(1, &texId);
+
+    // Bind the current texture
+    glBindTexture(GL_TEXTURE_2D, texId);
+
+    // Transfer image data onto the GPU using the teximage2D call
+    glTexImage2D (
+                GL_TEXTURE_2D,    // The target (in this case, which side of the cube)
+                0,                // Level of mipmap to load
+                img.format(),     // Internal format (number of colour components)
+                img.width(),      // Width in pixels
+                img.height(),     // Height in pixels
+                0,                // Border
+                GL_RGB,          // Format of the pixel data
+                GL_UNSIGNED_BYTE, // Data type of pixel data
+                img.getPixels()); // Pointer to image data in memory
+
+    // Set up parameters for our texture
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+}
+
+void LemonScene::initGL() noexcept {
+    // Fire up the NGL machinary (not doing this will make it crash)
+    ngl::NGLInit::instance();
+
+    // Set background colour
+    glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
+
+    // enable depth testing for drawing
+    glEnable(GL_DEPTH_TEST);
+
+    // enable multisampling for smoother drawing
+    glEnable(GL_MULTISAMPLE);
+
+    ngl::VAOPrimitives *prim=ngl::VAOPrimitives::instance();
+    prim->createSphere("sp1", 0.8f, 48);
+    prim->createTrianglePlane("plane1", 3, 3, 24, 24, ngl::Vec3(0,1,0));
+    //prim->createTrianglePlane("plane1",14,14,80,80,ngl::Vec3(0,1,0));
+    //prim->createDisk("disk1", 2,12);
+    prim->createTorus("t1", 1,2,40,40,false);
+    //prim->loadBinary("damnCubePlane", "volumePlane", );
+
+    // Create and compile the vertex and fragment shader
+    ngl::ShaderLib *shader=ngl::ShaderLib::instance();
+
+    shader->loadShader("TexGenShader",
+                       "shaders/texgen_vert.glsl",
+                       "shaders/texgen_frag.glsl");
+    (*shader)["TexGenShader"]->use();
+
+    GLuint pidtg = shader->getProgramID("TexGenShader");
+
+    // Our MVP matrices
+    glm::mat4 M = glm::mat4(1.0f);
+    glm::mat4 MVP, MV;
+    glm::mat3 N;
+
+    // Note the matrix multiplication order as we are in COLUMN MAJOR storage
+    MV = m_V * M;
+    N = glm::inverse(glm::mat3(MV));
+    MVP = m_P * MV;
+
+    // Set this MVP on the GPU
+    glUniformMatrix4fv(glGetUniformLocation(pidtg, "MVP"), //location of uniform
+                       1, // how many matrices to transfer
+                       false, // whether to transpose matrix
+                       glm::value_ptr(MVP)); // a raw pointer to the data
+
+    /*initTextureWriter(7, 7, 7);
+
+    shader->loadShader("Goraud",
+                       "common/shaders/gouraud_vert.glsl",
+                       "common/shaders/gouraud_frag.glsl");
+    (*shader)["Goraud"]->use();
+
+    //GLuint pidgg = shader->getProgramID("TexGenShader");
+*/
+    shader->loadShader("TestShader",
+                       "shaders/test_vert.glsl",
+                       "shaders/test_frag.glsl");
+    (*shader)["TestShader"]->use();
+
+    //initTexture(0, m_colourTex, "images/bricktexture.jpg");
+    //initTexture(1, m_normalTex, "images/bricknormals.jpg");
+
+    //GLuint pid = shader->getProgramID("TestShader");
+
+    // glUniform1i(glGetUniformLocation(pid, "ColourTexture"), //location of uniform
+                        //GL_TEXTURE0+7); // texture unit for colour
+     //glUniform1i(glGetUniformLocation(pid, "NormalTexture"), //location of uniform
+                        //GL_TEXTURE0+7); // texture unit for normals
+
+    // first pass
+    /*glBindFramebuffer(GL_FRAMEBUFFER, 7);
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // we're not using the stencil buffer now
+    glEnable(GL_DEPTH_TEST);
+    (*shader)["TexGenShader"]->use();
+    prim->draw("plane1");
+
+    // second pass
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); // back to default
+    glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);*/
+    (*shader)["TestShader"]->use();
+}
