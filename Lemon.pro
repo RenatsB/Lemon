@@ -22,6 +22,7 @@ OTHER_FILES += $$files($$PWD/shaders/simplePhong/*.glsl) \
                $$files($$PWD/shaders/tessellationTest/*.glsl) \
                $$files($$PWD/shaders/noiseShader/*.glsl) \
                $$files($$PWD/shaders/testShaders/*.glsl) \
+               $$files($$PWD/shaders/dispColour/*.glsl) \
                $$files($$PWD/shaders/lemonPBR/*.glsl)
 # and add the include dir into the search path for Qt and make
 INCLUDEPATH +=./include

@@ -13,6 +13,8 @@ const ivec3 off = ivec3(-1,0,1);
 const vec2 size = vec2(2.0,0.0);
 in vec3 gNormal;
 
+out vec4 fragColor;
+
 uniform mat4 MVP;
 
 // Structure for holding light parameters
@@ -249,7 +251,7 @@ void main() {
       texColor = mix(texColor, grayish, (0.015f-distance(RawPosition.xz,vec2(0)))*100.f);
 
     // Use the following shader for the correct value
-    gl_FragColor = vec4(texColor*lightColor,1.0);
+    fragColor = vec4(texColor*lightColor,1.0);
     //vec3 color = vec3( vUv * ( 1. - 2. * noise ), 0.0 );
     //gl_FragColor = vec4( color.rgb, 1.0 );
 }

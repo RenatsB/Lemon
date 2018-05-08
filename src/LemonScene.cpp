@@ -1,14 +1,13 @@
 #include "LemonScene.h"
+#include <QGuiApplication>
+#include <QMouseEvent>
 
-#include <glm/gtc/type_ptr.hpp>
-#include <ngl/Obj.h>
+#include <ngl/Camera.h>
 #include <ngl/NGLInit.h>
-#include <ngl/VAOPrimitives.h>
+#include <ngl/NGLStream.h>
+#include <ngl/Random.h>
 #include <ngl/ShaderLib.h>
-#include <ngl/Image.h>
-
-//#define TESSELLATION_ON
-#define NOISETEST_ON
+#include <ngl/VAOPrimitives.h>
 
 std::array<ngl::Vec3,4> g_lightPositions = {{
         ngl::Vec3(-10.0f,  4.0f, -10.0f),
@@ -16,8 +15,6 @@ std::array<ngl::Vec3,4> g_lightPositions = {{
         ngl::Vec3(-10.0f,  4.0f, 10.0f),
         ngl::Vec3( 10.0f,  4.0f, 10.0f)
 }};
-
-
 
 LemonScene::LemonScene()
 {
@@ -41,7 +38,7 @@ void LemonScene::initializeGL()
     ngl::NGLInit::instance();
 
     m_transform.reset();
-    m_transform.setScale(0.2f,0.2f,0.2f);
+    m_transform.setScale(2.0f,2.0f,2.0f);
     // Set background colour
     glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
 
@@ -61,15 +58,15 @@ void LemonScene::initializeGL()
     //------[       PHONG       ]-------------------------
     //----------------------------------------------------
     shader->loadShader("LemonPhong",
-                       "shaders/LemonPhong_Vert.glsl",
-                       "shaders/LemonPhong_Frag.glsl");
+                       "shaders/simplePhong/LemonPhong_Vert.glsl",
+                       "shaders/simplePhong/LemonPhong_Frag.glsl");
     (*shader)["LemonPhong"]->use();
     //----------------------------------------------------
     //------[        PBR        ]-------------------------
     //----------------------------------------------------
     shader->loadShader("LemonPBR",
-                       "shaders/LemonPBR_Vert.glsl",
-                       "shaders/LemonPBR_Frag.glsl");
+                       "shaders/lemonPBR/LemonPBR_Vert.glsl",
+                       "shaders/lemonPBR/LemonPBR_Frag.glsl");
     (*shader)["LemonPBR"]->use();
     //----------------------------------------------------
     //------[     TESSTEST      ]-------------------------
@@ -89,11 +86,11 @@ void LemonScene::initializeGL()
     shader->attachShader( geometryShader, ngl::ShaderType::GEOMETRY );
     shader->attachShader( fragShader, ngl::ShaderType::FRAGMENT );
     // attach the source
-    shader->loadShaderSource( vertexShader, "shaders/tessellationTest/test_vert.glsl" );
-    shader->loadShaderSource( tesevalShader, "shaders/tessellationTest/test_tes.glsl" );
-    shader->loadShaderSource( tesctrlShader, "shaders/tessellationTest/test_tcs.glsl" );
-    shader->loadShaderSource( geometryShader, "shaders/tessellationTest/test_geo.glsl" );
-    shader->loadShaderSource( fragShader, "shaders/tessellationTest/test_frag.glsl" );
+    shader->loadShaderSource( vertexShader, "shaders/tessellationTest/TesTest_Vert.glsl" );
+    shader->loadShaderSource( tesevalShader, "shaders/tessellationTest/TesTest_Tese.glsl" );
+    shader->loadShaderSource( tesctrlShader, "shaders/tessellationTest/TesTest_Tesc.glsl" );
+    shader->loadShaderSource( geometryShader, "shaders/tessellationTest/TesTest_Geo.glsl" );
+    shader->loadShaderSource( fragShader, "shaders/tessellationTest/TesTest_Frag.glsl" );
     // compile the shaders
     shader->compileShader( vertexShader );
     shader->compileShader( tesevalShader );
@@ -113,16 +110,21 @@ void LemonScene::initializeGL()
     //------[    NoiseDisplay   ]-------------------------
     //----------------------------------------------------
     shader->loadShader("NoiseDisplay",
-                       "shaders/noiseShader/texgen_vert.glsl",
-                       "shaders/noiseShader/texgen_frag.glsl");
+                       "shaders/noiseShader/Noise_Vert.glsl",
+                       "shaders/noiseShader/Noise_Frag.glsl");
     (*shader)["NoiseDisplay"]->use();
     //----------------------------------------------------
     //------[     DispColour    ]-------------------------
     //----------------------------------------------------
-    /*shader->loadShader("TessTest",
-                       "shaders/texgen_vert.glsl",
-                       "shaders/texgen_frag.glsl");
-    (*shader)["TexGenShader"]->use();*/
+    /*shader->loadShader("DispColour",
+                       "shaders/dispColour/DispColour_Vert.glsl",
+                       "shaders/dispColour/DispColour_Frag.glsl");
+    (*shader)["DispColour"]->use();*/
+    shader->loadShader("DispColour",
+                       "shaders/simplePhong/LemonPhong_Vert.glsl",
+                       "shaders/simplePhong/LemonPhong_Frag.glsl");
+    (*shader)["DispColour"]->use();
+    //----------------------------------------------------
 
     //set up cam
     ngl::Vec3 from( 0, 5, 13 );
@@ -135,94 +137,139 @@ void LemonScene::initializeGL()
     m_cam.setShape( 45.0f, 720.0f / 576.0f, 0.05f, 350.0f );
 }
 
-void LemonScene::paintGL() noexcept {
-    // Clear the screen (fill with our glClearColor)
+void LemonScene::paintGL()
+{
+    //m_transform.addRotation(ngl::Vec3(0.f,0.5f,0.f));
+    glViewport(0,0,m_win.width,m_win.height);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-
-    m_transform.addRotation(ngl::Vec3(0.f,0.5f,0.f));
-    // Set up the viewport
-    glViewport(0,0,m_width,m_height);
     //glPatchParameteri( GL_PATCH_VERTICES, 3 );
     // Use our shader for this draw
     ngl::ShaderLib *shader=ngl::ShaderLib::instance();
-    GLuint pid;
-    #ifdef TESSELLATION_ON
-    {
-      (*shader)["TestShader"]->use();
-      pid = shader->getProgramID("TestShader");
-    }
-    #else
-    {
-      (*shader)["LemonShader"]->use();
-      pid = shader->getProgramID("LemonShader");
-    }
-    #endif
 
-    loadMatricesToShader(pid);
+    // Rotation based on the mouse position for our global transform
+    ngl::Mat4 rotX;
+    ngl::Mat4 rotY;
+    // create the rotation matrices
+    rotX.rotateX( m_win.spinXFace );
+    rotY.rotateY( m_win.spinYFace );
+    // multiply the rotations
+    m_mouseGlobalTX = rotX * rotY;
+    // add the translations
+    m_mouseGlobalTX.m_m[ 3 ][ 0 ] = m_modelPos.m_x;
+    m_mouseGlobalTX.m_m[ 3 ][ 1 ] = m_modelPos.m_y;
+    m_mouseGlobalTX.m_m[ 3 ][ 2 ] = m_modelPos.m_z;
+
+    switch(m_currentShader)
+    {
+      case(PBR):{(*shader)["LemonPBR"]->use();break;}
+      case(TessTest):{(*shader)["TessTest"]->use();break;}
+      case(NoiseDisplay):{(*shader)["NoiseDisplay"]->use();break;}
+      case(DispColour):{(*shader)["DispColour"]->use();break;}
+      case(Phong):{(*shader)["LemonPhong"]->use();break;}
+    }
+    if(m_currentShader==PBR)
+    {
+        shader->setUniform("albedo",0.5f, 0.0f, 0.0f);
+        shader->setUniform("ao",1.0f);
+        shader->setUniform("roughness",0.02f);
+        shader->setUniform("camPos",m_cam.getEye().toVec3());
+        shader->setUniform("exposure",1.0f);
+        for(size_t i=0; i<g_lightPositions.size(); ++i)
+        {
+          shader->setUniform(("lightPositions[" + std::to_string(i) + "]").c_str(),g_lightPositions[i]);
+          shader->setUniform(("lightColors[" + std::to_string(i) + "]").c_str(),m_lightColors[i]);
+        }
+    }
+
+
+    loadMatricesToShader();
 
     ngl::VAOPrimitives *prim=ngl::VAOPrimitives::instance();
     prim->draw("sp1");
 
-    #ifdef NOISETEST_ON
-    {
-      ngl::Transformation temp = m_transform;
-      m_transform.reset();
-      m_transform.setPosition(ngl::Vec3(0,0,1));
+    //ngl::Transformation temp = m_transform;
+    //m_transform.reset();
+    //m_transform.setPosition(ngl::Vec3(0,0,1));
+    //m_transform.setRotation(ngl::Vec3(90,0,0));
 
-      (*shader)["TexGenShader"]->use();
-      GLuint pidp = shader->getProgramID("TexGenShader");
-      loadMatricesToShader(pidp);
-      prim->draw("plane1");
+    loadMatricesToShader();
+    prim->draw("plane1");
 
-      m_transform.reset();
-      m_transform = temp;
-    }
-    #endif
+    //m_transform.reset();
+    //m_transform = temp;
 }
 
-void LemonScene::loadMatricesToShader(GLuint _pid)
+void LemonScene::loadMatricesToShader()
 {
-  glm::mat4 MV;
-  glm::mat4 MVP;
-  glm::mat3 N;
-  glm::mat4 M;
-  ngl::Mat4 mngl = m_transform.getMatrix();
-  M[0][0]  = (GLfloat)mngl.m_openGL[0];
-  M[0][1]  = (GLfloat)mngl.m_openGL[1];
-  M[0][2]  = (GLfloat)mngl.m_openGL[2];
-  M[0][3]  = (GLfloat)mngl.m_openGL[3];
-  M[1][0]  = (GLfloat)mngl.m_openGL[4];
-  M[1][1]  = (GLfloat)mngl.m_openGL[5];
-  M[1][2]  = (GLfloat)mngl.m_openGL[6];
-  M[1][3]  = (GLfloat)mngl.m_openGL[7];
-  M[2][0]  = (GLfloat)mngl.m_openGL[8];
-  M[2][1]  = (GLfloat)mngl.m_openGL[9];
-  M[2][2]  = (GLfloat)mngl.m_openGL[10];
-  M[2][3]  = (GLfloat)mngl.m_openGL[11];
-  M[3][0]  = (GLfloat)mngl.m_openGL[12];
-  M[3][1]  = (GLfloat)mngl.m_openGL[13];
-  M[3][2]  = (GLfloat)mngl.m_openGL[14];
-  M[3][3]  = (GLfloat)mngl.m_openGL[15];
-  MV  = m_V * M;
-  MVP = m_P * MV;
+  ngl::ShaderLib* shader = ngl::ShaderLib::instance();
 
-  N = glm::inverse(MV);
+  ngl::Mat4 MV;
+  ngl::Mat4 MVP;
+  ngl::Mat3 normalMatrix;
+  ngl::Mat4 M;
+  M            = m_mouseGlobalTX * m_transform.getMatrix() ;
+  MV           = m_cam.getViewMatrix() * M;
+  MVP          = m_cam.getVPMatrix() * M;
 
-  glUniformMatrix4fv(glGetUniformLocation(_pid, "MVP"), //location of uniform
-                     1, // how many matrices to transfer
-                     false, // whether to transpose matrix
-                     glm::value_ptr(MVP)); // a raw pointer to the data
-  glUniformMatrix4fv(glGetUniformLocation(_pid, "MV"), //location of uniform
-                     1, // how many matrices to transfer
-                     false, // whether to transpose matrix
-                     glm::value_ptr(MV)); // a raw pointer to the data
-  glUniformMatrix3fv(glGetUniformLocation(_pid, "N"), //location of uniform
-                     1, // how many matrices to transfer
-                     true, // whether to transpose matrix
-                     glm::value_ptr(N)); // a raw pointer to the data
-  glUniformMatrix3fv(glGetUniformLocation(_pid, "P"), //location of uniform
-                     1, // how many matrices to transfer
-                     true, // whether to transpose matrix
-                     glm::value_ptr(m_P)); // a raw pointer to the data
+  normalMatrix = MV;
+  normalMatrix.inverse().transpose();
+  shader->setUniform( "MVP", MVP );
+  shader->setUniform( "N", normalMatrix );
+  shader->setUniform( "M", M );
+  shader->setUniform( "MV", MV );
 }
+
+void LemonScene::keyPressEvent( QKeyEvent* _event )
+{
+  // that method is called every time the main window recives a key event.
+  // we then switch on the key value and set the camera in the GLWindow
+  switch ( _event->key() )
+  {
+    // escape key to quit
+    case Qt::Key_Escape:
+      QGuiApplication::exit( EXIT_SUCCESS );
+      break;
+// turn on wirframe rendering
+#ifndef USINGIOS_
+    case Qt::Key_W:
+      glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+      break;
+    // turn off wire frame
+    case Qt::Key_S:
+      glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+      break;
+#endif
+    // show full screen
+    case Qt::Key_F:
+      showFullScreen();
+      break;
+    // show windowed
+    case Qt::Key_N:
+      showNormal();
+      break;
+    case Qt::Key_Space :
+      m_win.spinXFace=0;
+      m_win.spinYFace=0;
+      m_modelPos.set(ngl::Vec3::zero());
+    break;
+    case Qt::Key_0 :
+      m_currentShader = Phong;
+    break;
+    case Qt::Key_1 :
+      m_currentShader = PBR;
+    break;
+    case Qt::Key_2 :
+      m_currentShader = TessTest;
+    break;
+    case Qt::Key_3 :
+      m_currentShader = NoiseDisplay;
+    break;
+    case Qt::Key_4 :
+      m_currentShader = DispColour;
+    break;
+    default:
+      break;
+  }
+  update();
+}
+
