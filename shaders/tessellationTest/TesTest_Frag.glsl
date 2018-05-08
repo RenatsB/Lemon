@@ -3,17 +3,17 @@
 const float texCoordScale = 10.0;
 
 const vec3 yellow = vec3(255.0/255.0, 242.0/255.0, 102.0/255.0);
-const vec3 grayish = vec3(168.0/255.0, 168.0/255.0, 153.0/255.0);
+const vec3 grayish = vec3(68.0/255.0, 68.0/255.0, 53.0/255.0);
 const vec3 white = vec3(242/255.0, 242/255.0, 225/255.0);
+const vec3 green = vec3(0,1,0);
 
-in vec2 vUv;
+in vec2 texcoord;
 in float noise;
 const ivec3 off = ivec3(-1,0,1);
 const vec2 size = vec2(2.0,0.0);
-in mat4 mMVP;
+in vec3 gNormal;
 
-// The output colour which will be output to the framebuffer
-layout (location=0) out vec4 fragColour;
+uniform mat4 MVP;
 
 // Structure for holding light parameters
 struct LightInfo {
@@ -44,13 +44,8 @@ uniform MaterialInfo Material = MaterialInfo(
             vec3(0.3, 0.3, 0.3),    // Ka
             vec3(0.75, 0.75, 0.75),    // Kd
             vec3(0.5, 0.5, 0.5),    // Ks
-            3.0);                  // Shininess
+            8.0);                  // Shininess
 
-// Attributes passed on from the vertex shader
-smooth in vec3 FragmentPosition;
-smooth in vec3 FragmentNormal;
-smooth in vec2 FragmentTexCoord;
-smooth in vec3 RawPosition;
 
 /** From http://www.neilmendoza.com/glsl-rotation-about-an-arbitrary-axis/
   */
@@ -178,38 +173,35 @@ float sumOctave(in vec2 pos,
 }
 
 void main() {
-    float specnoise = sumOctave(FragmentTexCoord*4.f, 12, 0.05f, 1.0f, 0.4f, 0.8f);
-    specnoise = smoothstep(specnoise, 0.0f, 0.76f);
-    specnoise = normalize(specnoise);
+    float specnoise = sumOctave(texcoord*12.f, 12, 0.105f, 1.0f, 0.4f, 0.8f);
+    specnoise = smoothstep(specnoise, 0.0f, 0.77f);
+    //specnoise = normalize(specnoise);
 
     // Calculate the normal (this is the expensive bit in Phong)
-    vec3 n = normalize( FragmentNormal );
+    vec3 n = normalize( gNormal );
 
     // Calculate the view vector
-    vec3 v = normalize(vec3(-FragmentPosition));
+    vec3 v = normalize(vec3(-gl_FragCoord));
 
     float freq = 0.025f;
     int nscale = 12;
     float specPow = 1.f;
     if(specnoise>0)
       freq = 0.5f;
-    if(distance(RawPosition.xz,vec2(0)) < 0.2f && RawPosition.y >0.f)
-    {
-      freq = 0.0001;
-      nscale = 1;
-      specPow = 0.f;
-    }
-    float f = sumOctave(FragmentTexCoord*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
+
+    float f = sumOctave(texcoord*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
 
     float s11 = f;
-    float s01 = sumOctave((FragmentTexCoord+off.xy)*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
-    float s21 = sumOctave((FragmentTexCoord+off.zy)*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
-    float s10 = sumOctave((FragmentTexCoord+off.yx)*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
-    float s12 = sumOctave((FragmentTexCoord+off.yz)*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
+    float s01 = sumOctave((texcoord+off.xy)*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
+    float s21 = sumOctave((texcoord+off.zy)*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
+    float s10 = sumOctave((texcoord+off.yx)*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
+    float s12 = sumOctave((texcoord+off.yz)*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
 
     vec3 va = normalize(vec3(size.xy,s21-s01));
     vec3 vb = normalize(vec3(size.yx,s12-s10));
     vec4 bump = vec4( cross(va,vb), s11 );
+    if(texcoord.y>1.2)
+      bump = mix(bump, vec4(0,0,0.1,1), 1.2f-texcoord.y);
 
     vec3 tgt = normalize(bump.rgb);
 
@@ -220,27 +212,44 @@ void main() {
     vec3 np = rotateVector(src, tgt, n);
 
     // Calculate the light vector
-    vec3 s = normalize( vec3(Light.Position) - FragmentPosition );
+    vec3 s = normalize( vec3(Light.Position) - gl_FragCoord.xyz );
+
+    vec4 RawPosition = gl_FragCoord * inverse(MVP);
 
     // Reflect the light about the surface normal
-    vec3 r = (reflect( -s, np )*f*1.25f-specnoise)*specPow;
+    vec3 r = (reflect( -s, np )*f*1.45f);
+    if(specnoise>0)
+      r = mix(reflect( -s, np )/2.f, reflect( -s, np )*f*1.45f, specnoise*1000.f);
+    if(distance(RawPosition.xz,vec2(0)) < 0.015f && RawPosition.y < 0)
+      r = reflect( -s, np )/2.f;
 
     // Compute the light from the ambient, diffuse and specular components
     vec3 lightColor = (
             Light.La * Material.Ka +
             Light.Ld * Material.Kd * max( dot(s, np), f/2.f ) +
-            Light.Ls * Material.Ks * pow( max( dot(r,v), f ), Material.Shininess*(2.f-specnoise) )*specPow);
+            Light.Ls * Material.Ks * pow( max( dot(r,v), f ), Material.Shininess*(2.f)-specnoise ));
+
+    vec3 diff = green - yellow;
 
     vec3 texColor = yellow;
 
     if(specnoise>0.f)
-      texColor = grayish;
+      texColor = mix(yellow, grayish, specnoise*1000.f);
 
-    if(distance(RawPosition.xz,vec2(0)) < 0.2f && RawPosition.y > 0)
-      texColor = white;
+    if(distance(RawPosition.xz,vec2(0)) < 0.3f && RawPosition.y > 0)
+      texColor = mix(yellow, green, vec3((0.3f - distance(RawPosition.xz,vec2(0)))));
+
+    if(distance(RawPosition.xz,vec2(0)) < 0.1f && RawPosition.y > 0)
+      texColor = mix(texColor, white, vec3((0.1f - distance(RawPosition.xz,vec2(0)))));
+
+    if(distance(RawPosition.xz,vec2(0)) < 0.15f && RawPosition.y < 0)
+      texColor = mix(yellow, green, vec3((0.15f - distance(RawPosition.xz,vec2(0)))));
+
+    if(distance(RawPosition.xz,vec2(0)) < 0.015f && RawPosition.y < 0)
+      texColor = mix(texColor, grayish, (0.015f-distance(RawPosition.xz,vec2(0)))*100.f);
 
     // Use the following shader for the correct value
-    fragColour = vec4(texColor*lightColor,1.0);
+    gl_FragColor = vec4(texColor*lightColor,1.0);
     //vec3 color = vec3( vUv * ( 1. - 2. * noise ), 0.0 );
     //gl_FragColor = vec4( color.rgb, 1.0 );
 }

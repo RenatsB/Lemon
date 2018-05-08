@@ -8,10 +8,10 @@ const vec3 white = vec3(242/255.0, 242/255.0, 225/255.0);
 const vec3 green = vec3(0,1,0);
 
 in vec2 vUv;
-in float noise;
+//in float noise;
 const ivec3 off = ivec3(-1,0,1);
 const vec2 size = vec2(2.0,0.0);
-in mat4 mMVP;
+//in mat4 mMVP;
 
 // The output colour which will be output to the framebuffer
 layout (location=0) out vec4 fragColour;
@@ -52,7 +52,7 @@ smooth in vec3 FragmentPosition;
 smooth in vec3 FragmentNormal;
 smooth in vec2 FragmentTexCoord;
 smooth in vec3 RawPosition;
-smooth in vec2 RawTexCoord;
+//smooth in vec2 RawTexCoord;
 
 /** From http://www.neilmendoza.com/glsl-rotation-about-an-arbitrary-axis/
   */

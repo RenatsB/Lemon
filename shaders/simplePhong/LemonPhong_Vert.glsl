@@ -4,12 +4,12 @@
 uniform mat4 MVP;
 uniform mat4 MV;
 uniform mat3 N; // This is the inverse transpose of the mv matrix
+//uniform float t;
 
 const float stretch = 1.25;
 
 out float noise;
-out vec2 vUv;
-out mat4 mMVP;
+//out mat4 mMVP;
 
 // The vertex position attribute
 layout (location=0) in vec3 VertexPosition;
@@ -25,6 +25,7 @@ smooth out vec3 FragmentPosition;
 smooth out vec3 FragmentNormal;
 smooth out vec2 FragmentTexCoord;
 smooth out vec3 RawPosition;
+//out vec3 vPosition;
 
 vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x, 289.0);}
 vec4 taylorInvSqrt(vec4 r){return 1.79284291400159 - 0.85373472095314 * r;}
@@ -110,18 +111,10 @@ float turbulence( vec3 p ) {
   return t;
 }
 
-float getDist(vec2 a, vec2 b)
-{
-  vec2 g = a-b;
-  return sqrt(g.x*g.x + g.y*g.y);
-}
-
 void main() {
 
     vec3 strNormal = normalize(vec3(VertexNormal.x, VertexNormal.y*stretch, VertexNormal.z));
     vec3 strPos = vec3(VertexNormal.x, VertexNormal.y*stretch, VertexNormal.z);
-
-    vUv = vec2(TexCoord.x, TexCoord.y*stretch);
 
     // get a turbulent 3d noise using the normal, normal to high freq
     noise = 1.0 *  -.10 * turbulence( .5 * strNormal );
@@ -129,10 +122,12 @@ void main() {
     float b = 1.0 * snoise( 0.05 * strPos);
     // compose both noises
     float displacement = - 1. * noise + b;
-    float powX = strPos.x*strPos.x;
-    float powZ = strPos.z*strPos.z;
+
+    if(distance(strPos.xz, vec2(0)) <= 0.6f && strPos.y > 0)
+      displacement += (0.6-distance(strPos.xz, vec2(0)))/2.5f;
+
     if(distance(strPos.xz, vec2(0)) <= 0.1f && strPos.y > 0)
-      displacement = -0.1;
+      displacement -= (0.2-distance(strPos.xz, vec2(0)))/2.5f;
 
     if(distance(strPos.xz, vec2(0)) <= 0.6f && strPos.y < 0)
       displacement += (0.6-distance(strPos.xz, vec2(0)))/2.5f;
@@ -149,9 +144,8 @@ void main() {
     RawPosition = strPos;
 
     // Copy across the texture coordinates
-    FragmentTexCoord = vUv;
-
-    mMVP = MVP;
+    FragmentTexCoord = vec2(TexCoord.x, TexCoord.y*stretch);
+    //mMVP = MVP;
 
     vec3 newPosition = strPos + strNormal * displacement;
     // Compute the position of the vertex

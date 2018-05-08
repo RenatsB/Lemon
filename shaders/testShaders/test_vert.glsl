@@ -4,11 +4,12 @@
 uniform mat4 MVP;
 uniform mat4 MV;
 uniform mat3 N; // This is the inverse transpose of the mv matrix
+//uniform float t;
 
 const float stretch = 1.25;
 
 out float noise;
-out mat4 mMVP;
+//out mat4 mMVP;
 
 // The vertex position attribute
 layout (location=0) in vec3 VertexPosition;
@@ -24,6 +25,7 @@ smooth out vec3 FragmentPosition;
 smooth out vec3 FragmentNormal;
 smooth out vec2 FragmentTexCoord;
 smooth out vec3 RawPosition;
+//out vec3 vPosition;
 
 vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x, 289.0);}
 vec4 taylorInvSqrt(vec4 r){return 1.79284291400159 - 0.85373472095314 * r;}
@@ -109,12 +111,6 @@ float turbulence( vec3 p ) {
   return t;
 }
 
-float getDist(vec2 a, vec2 b)
-{
-  vec2 g = a-b;
-  return sqrt(g.x*g.x + g.y*g.y);
-}
-
 void main() {
 
     vec3 strNormal = normalize(vec3(VertexNormal.x, VertexNormal.y*stretch, VertexNormal.z));
@@ -150,9 +146,13 @@ void main() {
 
     // Copy across the texture coordinates
     FragmentTexCoord = vec2(TexCoord.x, TexCoord.y*stretch);
-    mMVP = MVP;
+    //mMVP = MVP;
 
     vec3 newPosition = strPos + strNormal * displacement;
     // Compute the position of the vertex
+    //vec4 glPos = MVP * vec4(newPosition,1.0);
+    //vPosition = glPos.xyz;
+    //FragmentPosition = glPos.xyz;
+    //gl_Position = glPos;
     gl_Position = MVP * vec4(newPosition,1.0);
 }
