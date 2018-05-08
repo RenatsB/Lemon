@@ -169,9 +169,10 @@ void LemonScene::paintGL()
     }
     if(m_currentShader==PBR)
     {
-        shader->setUniform("albedo",0.5f, 0.0f, 0.0f);
+        shader->setUniform("albedo",1.0f, 1.0f, 1.0f);
         shader->setUniform("ao",1.0f);
-        shader->setUniform("roughness",0.02f);
+        shader->setUniform("metallic",0.5f);
+        shader->setUniform("roughness",0.1f);
         shader->setUniform("camPos",m_cam.getEye().toVec3());
         shader->setUniform("exposure",1.0f);
         for(size_t i=0; i<g_lightPositions.size(); ++i)

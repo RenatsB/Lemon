@@ -1,4 +1,4 @@
-#version 330 core
+#version 430
 const float texCoordScale = 10.0;
 
 const vec3 yellow = vec3(255.0/255.0, 242.0/255.0, 102.0/255.0);
@@ -17,8 +17,6 @@ smooth in vec2 FragmentTexCoord;
 smooth in vec3 RawPosition;
 
 in mat3 TBN;
-
-
 
 // material parameters
 uniform vec3 albedo;
@@ -174,12 +172,10 @@ void main()
   specnoise = smoothstep(specnoise, 0.0f, 0.77f);
 
     vec3 N = normalize(FragmentNormal);
-    vec3 V = normalize(camPos - FragmentPosition);
-    vec3 R = reflect(-V, N);
+    vec3 V = normalize(-FragmentPosition);
 
     float freq = 0.025f;
     int nscale = 12;
-    float specPow = 1.f;
     if(specnoise>0)
       freq = 0.5f;
 
@@ -195,10 +191,31 @@ void main()
     vec3 vb = normalize(vec3(size.yx,s12-s10));
     vec4 bump = vec4( cross(va,vb), s11 );
 
+    N = normalize(bump.xyz);
+
+    vec3 R = reflect(-V, N);
+    vec3 texColor = yellow;
+
+    texColor = mix(texColor, grayish, specnoise*1000.f);
+
+    /*if(distance(RawPosition.xz,vec2(0)) < 0.3f && RawPosition.y > 0)
+      texColor = mix(yellow, green, vec3((0.3f - distance(RawPosition.xz,vec2(0)))));
+
+    if(distance(RawPosition.xz,vec2(0)) < 0.15f && RawPosition.y > 0)
+      texColor = mix(texColor, white, vec3((0.15f - distance(RawPosition.xz,vec2(0)))));
+
+    if(distance(RawPosition.xz,vec2(0)) < 0.15f && RawPosition.y < 0)
+      texColor = mix(yellow, green, vec3((0.15f - distance(RawPosition.xz,vec2(0)))));
+
+    if(distance(RawPosition.xz,vec2(0)) < 0.015f && RawPosition.y < 0)
+      texColor = mix(texColor, grayish, (0.015f-distance(RawPosition.xz,vec2(0)))*100.f);*/
+
+    //texColor = texColor;
     // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0
     // of 0.04 and if it's a metal, use their albedo color as F0 (metallic workflow)
-    vec3 F0 = vec3(0.04);
-    F0 = mix(F0, albedo, metallic);
+    //vec3 F0 = vec3(0.04);
+    vec3 F0 = texColor;
+    //F0 = mix(F0, texColor, metallic);
 
     // reflectance equation
     vec3 Lo = vec3(0.0);
@@ -207,8 +224,8 @@ void main()
         // calculate per-light radiance
         vec3 L = normalize(lightPositions[i] - FragmentPosition);
         vec3 H = normalize(V + L);
-        float distance = length(lightPositions[i] - FragmentPosition);
-        float attenuation = 1.0 / (distance * distance);
+        float ldistance = length(lightPositions[i] - FragmentPosition);
+        float attenuation = 1.0 / (ldistance * ldistance);
         vec3 radiance = lightColors[i] * attenuation;
 
         // Cook-Torrance BRDF
@@ -234,13 +251,15 @@ void main()
         // scale light by NdotL
         float NdotL = max(dot(N, L), 0.0);
 
+      //texColor = normalize(texColor)
+
         // add to outgoing radiance Lo
-        Lo += (kD * albedo / PI + brdf) * radiance * NdotL;  // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
+        Lo += (kD * F0 / PI + brdf) * radiance * NdotL;  // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
     }
 
     // ambient lighting (note that the next IBL tutorial will replace
     // this ambient lighting with environment lighting).
-    vec3 ambient = vec3(0.03) * albedo * ao;
+    vec3 ambient = vec3(0.03) * F0 * ao;
 
     vec3 color = ambient + Lo;
 
