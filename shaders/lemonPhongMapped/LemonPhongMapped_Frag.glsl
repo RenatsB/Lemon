@@ -1,4 +1,6 @@
 #version 430
+uniform sampler2D NormalTexture;
+
 // Set this property to change the scaling of the texture over the surface (higher means that the texture is repeated more frequently)
 const float texCoordScale = 10.0;
 
@@ -87,126 +89,12 @@ vec3 rotateVector(vec3 src, vec3 tgt, vec3 vec) {
     return _norm.xyz / _norm.w;
 }
 
-/******************************************************
-  * The following simplex noise functions have been taken from WebGL-noise
-  * https://github.com/stegu/webgl-noise/blob/master/src/noise2D.glsl
-  *>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
-vec3 mod289(vec3 x) {
-  return x - floor(x * (1.0 / 289.0)) * 289.0;
-}
-
-vec2 mod289(vec2 x) {
-  return x - floor(x * (1.0 / 289.0)) * 289.0;
-}
-
-vec3 permute(vec3 x) {
-  return mod289(((x*34.0)+1.0)*x);
-}
-
-float snoise(vec2 v) {
-  const vec4 C = vec4(0.211324865405187,  // (3.0-sqrt(3.0))/6.0
-                      0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
-                     -0.577350269189626,  // -1.0 + 2.0 * C.x
-                      0.024390243902439); // 1.0 / 41.0
-// First corner
-  vec2 i  = floor(v + dot(v, C.yy) );
-  vec2 x0 = v -   i + dot(i, C.xx);
-
-// Other corners
-  vec2 i1;
-  //i1.x = step( x0.y, x0.x ); // x0.x > x0.y ? 1.0 : 0.0
-  //i1.y = 1.0 - i1.x;
-  i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-  // x0 = x0 - 0.0 + 0.0 * C.xx ;
-  // x1 = x0 - i1 + 1.0 * C.xx ;
-  // x2 = x0 - 1.0 + 2.0 * C.xx ;
-  vec4 x12 = x0.xyxy + C.xxzz;
-  x12.xy -= i1;
-
-// Permutations
-  i = mod289(i); // Avoid truncation effects in permutation
-  vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
-                + i.x + vec3(0.0, i1.x, 1.0 ));
-
-  vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
-  m = m*m ;
-  m = m*m ;
-
-// Gradients: 41 points uniformly over a line, mapped onto a diamond.
-// The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
-
-  vec3 x = 2.0 * fract(p * C.www) - 1.0;
-  vec3 h = abs(x) - 0.5;
-  vec3 ox = floor(x + 0.5);
-  vec3 a0 = x - ox;
-
-// Normalise gradients implicitly by scaling m
-// Approximation of: m *= inversesqrt( a0*a0 + h*h );
-  m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
-
-// Compute final noise value at P
-  vec3 g;
-  g.x  = a0.x  * x0.x  + h.x  * x0.y;
-  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-  return 130.0 * dot(m, g);
-}
-/*********** END REFERENCE ************************/
-
-/***************************************************
-  * This function is ported from
-  * https://cmaher.github.io/posts/working-with-simplex-noise/
-  ****************************************************/
-float sumOctave(in vec2 pos,
-                in int num_iterations,
-                in float persistence,
-                in float scale,
-                in float low,
-                in float high) {
-    float maxAmp = 0.0f;
-    float amp = 1.0f;
-    float freq = scale;
-    float noise = 0.0f;
-    int i;
-
-    for (i = 0; i < num_iterations; ++i) {
-        noise += snoise(pos * freq) * amp;
-        maxAmp += amp;
-        amp *= persistence;
-        freq *= 2.0f;
-    }
-    noise /= maxAmp;
-    noise = noise*(high-low)*0.5f + (high+low)*0.5f;
-    return noise;
-}
-
 void main() {
-    float specnoise = sumOctave(FragmentTexCoord*12.f, 12, 0.105f, 1.0f, 0.4f, 0.8f);
-    specnoise = smoothstep(specnoise, 0.0f, 0.77f);
-    //specnoise = normalize(specnoise);
-
     vec3 n = normalize( FragmentNormal );
 
     vec3 v = normalize(vec3(-FragmentPosition));
 
-    float freq = 0.025f;
-    int nscale = 12;
-    float specPow = 1.f;
-    if(specnoise>0)
-      freq = 0.5f;
-    //The following code was adapted from:
-    //It creates a bump vector using grayscale heightmap (noise value in this case)
-    //XYZ of result define the bump vector, while W component defines the height value (not used)
-    float f = sumOctave(FragmentTexCoord*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
-
-    float s11 = f;
-    float s01 = sumOctave((FragmentTexCoord+off.xy)*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
-    float s21 = sumOctave((FragmentTexCoord+off.zy)*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
-    float s10 = sumOctave((FragmentTexCoord+off.yx)*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
-    float s12 = sumOctave((FragmentTexCoord+off.yz)*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
-
-    vec3 va = normalize(vec3(size.xy,s21-s01));
-    vec3 vb = normalize(vec3(size.yx,s12-s10));
-    vec4 bump = vec4( cross(va,vb), s11 );
+    vec4 bump = texture(NormalTexture, FragmentTexCoord*texCoordScale);
     //End of adapted fragment
 
 
@@ -222,24 +110,20 @@ void main() {
     vec3 s = normalize( vec3(Light.Position) - FragmentPosition );
 
     // Reflect the light about the surface normal
-    vec3 r = (reflect( -s, np )*f*1.45f);
-    if(specnoise>0)
-      r = mix(reflect( -s, np )/2.f, reflect( -s, np )*f*1.45f, specnoise*1000.f);
+    vec3 r = (reflect( -s, np ));
+
     if(distance(RawPosition.xz,vec2(0)) < 0.015f && RawPosition.y < 0)
       r = reflect( -s, np )/2.f;
 
     // Compute the light from the ambient, diffuse and specular components
     vec3 lightColor = (
             Light.La * Material.Ka +
-            Light.Ld * Material.Kd * max( dot(s, np), f/2.f ) +
-            Light.Ls * Material.Ks * pow( max( dot(r,v), f ), Material.Shininess*(2.f)-specnoise ));
+            Light.Ld * Material.Kd * max( dot(s, np), 0 ) +
+            Light.Ls * Material.Ks * pow( max( dot(r,v), 0 ), Material.Shininess ));
 
     vec3 texColor = yellow;
 
     float dst = distance(RawPosition.xz,vec2(0));
-
-    if(specnoise>0.f)
-      texColor = mix(yellow, grayish, specnoise*1000.f);
 
     if(dst < 0.3f && RawPosition.y > 0)
       texColor = mix(yellow, green, (0.3f - dst));

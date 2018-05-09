@@ -10,10 +10,10 @@
 #include <ngl/VAOPrimitives.h>
 
 std::array<ngl::Vec3,4> g_lightPositions = {{
-        ngl::Vec3(-10.0f,  4.0f, -10.0f),
-        ngl::Vec3( 10.0f,  4.0f, -10.0f),
-        ngl::Vec3(-10.0f,  4.0f, 10.0f),
-        ngl::Vec3( 10.0f,  4.0f, 10.0f)
+        ngl::Vec3(-7.0f,  4.0f, -7.0f),
+        ngl::Vec3( 7.0f,  4.0f, -7.0f),
+        ngl::Vec3(-7.0f,  4.0f, 7.0f),
+        ngl::Vec3( 7.0f,  4.0f, 7.0f)
 }};
 
 LemonScene::LemonScene()
@@ -38,7 +38,7 @@ void LemonScene::initializeGL()
     ngl::NGLInit::instance();
 
     m_transform.reset();
-    m_transform.setScale(2.0f,2.0f,2.0f);
+    m_transform.setScale(1.0f,1.0f,1.0f);
     // Set background colour
     glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
 
@@ -50,6 +50,7 @@ void LemonScene::initializeGL()
     ngl::VAOPrimitives *prim=ngl::VAOPrimitives::instance();
     //generate primitives
     prim->createSphere("sp1", 0.8f, 68);
+    prim->createSphere("sphere", 0.5f, 12);
     prim->createTrianglePlane("plane1", 1, 1, 24, 24, ngl::Vec3(0,1,0));
 
     // Create and compile shaders
@@ -116,16 +117,25 @@ void LemonScene::initializeGL()
     //----------------------------------------------------
     //------[     DispColour    ]-------------------------
     //----------------------------------------------------
-    /*shader->loadShader("DispColour",
+    shader->loadShader("DispColour",
                        "shaders/dispColour/DispColour_Vert.glsl",
                        "shaders/dispColour/DispColour_Frag.glsl");
-    (*shader)["DispColour"]->use();*/
-    shader->loadShader("DispColour",
-                       "shaders/simplePhong/LemonPhong_Vert.glsl",
-                       "shaders/simplePhong/LemonPhong_Frag.glsl");
     (*shader)["DispColour"]->use();
     //----------------------------------------------------
-
+    //------[    PhongMapped    ]-------------------------
+    //----------------------------------------------------
+    shader->loadShader("PhongMapped",
+                       "shaders/lemonPhongMapped/LemonPhongMapped_Vert.glsl",
+                       "shaders/lemonPhongMapped/LemonPhongMapped_Frag.glsl");
+    (*shader)["PhongMapped"]->use();
+    //----------------------------------------------------
+    //------[     PBRMapped     ]-------------------------
+    //----------------------------------------------------
+    shader->loadShader("PBRMapped",
+                       "shaders/lemonPBRMapped/LemonPBRMapped_Vert.glsl",
+                       "shaders/lemonPBRMapped/LemonPBRMapped_Frag.glsl");
+    (*shader)["PBRMapped"]->use();
+    //----------------------------------------------------
     //set up cam
     ngl::Vec3 from( 0, 5, 13 );
     ngl::Vec3 to( 0, 0, 0 );
@@ -135,14 +145,27 @@ void LemonScene::initializeGL()
     // set the shape using FOV 45 Aspect Ratio based on Width and Height
     // The final two are near and far clipping planes of 0.5 and 10
     m_cam.setShape( 45.0f, 720.0f / 576.0f, 0.05f, 350.0f );
+
+    initTextureWriter(0, 4);
+
+    glBindFramebuffer( GL_FRAMEBUFFER,  4 );
+    generateNoiseTexture(0);
+    glBindFramebuffer( GL_FRAMEBUFFER,  0 );
+    glActiveTexture( GL_TEXTURE0 );
+    glBindTexture( GL_TEXTURE_2D, 0 );
+
+    glTexParameteri( GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR );
+    glTexParameteri( GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT );
+    glGenerateMipmap( GL_TEXTURE_2D );
 }
 
 void LemonScene::paintGL()
 {
-    //m_transform.addRotation(ngl::Vec3(0.f,0.5f,0.f));
     glViewport(0,0,m_win.width,m_win.height);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    //glPatchParameteri( GL_PATCH_VERTICES, 3 );
+
     // Use our shader for this draw
     ngl::ShaderLib *shader=ngl::ShaderLib::instance();
 
@@ -166,15 +189,18 @@ void LemonScene::paintGL()
       case(NoiseDisplay):{(*shader)["NoiseDisplay"]->use();break;}
       case(DispColour):{(*shader)["DispColour"]->use();break;}
       case(Phong):{(*shader)["LemonPhong"]->use();break;}
+      case(PhongMapped):{(*shader)["PhongMapped"]->use();shader->setUniform("NormalTexture",0);break;}
+      case(PBRMapped):{(*shader)["PBRMapped"]->use();shader->setUniform("NormalTexture",0);break;}
     }
+    shader->setUniform("albedo",1.0f, 1.0f, 1.0f);
+    shader->setUniform("ao",1.0f);
+    shader->setUniform("metallic",0.62f);
+    shader->setUniform("roughness",0.12f);
+    shader->setUniform("camPos",m_cam.getEye().toVec3());
+    shader->setUniform("exposure",1.0f);
     if(m_currentShader==PBR)
     {
-        shader->setUniform("albedo",1.0f, 1.0f, 1.0f);
-        shader->setUniform("ao",1.0f);
-        shader->setUniform("metallic",0.5f);
-        shader->setUniform("roughness",0.1f);
-        shader->setUniform("camPos",m_cam.getEye().toVec3());
-        shader->setUniform("exposure",1.0f);
+
         for(size_t i=0; i<g_lightPositions.size(); ++i)
         {
           shader->setUniform(("lightPositions[" + std::to_string(i) + "]").c_str(),g_lightPositions[i]);
@@ -182,22 +208,24 @@ void LemonScene::paintGL()
         }
     }
 
-
     loadMatricesToShader();
 
     ngl::VAOPrimitives *prim=ngl::VAOPrimitives::instance();
     prim->draw("sp1");
 
-    //ngl::Transformation temp = m_transform;
-    //m_transform.reset();
-    //m_transform.setPosition(ngl::Vec3(0,0,1));
-    //m_transform.setRotation(ngl::Vec3(90,0,0));
+    (*shader)["NoiseDisplay"]->use();
 
-    loadMatricesToShader();
-    prim->draw("plane1");
-
-    //m_transform.reset();
+    m_transform.reset();
     //m_transform = temp;
+    for(auto p : g_lightPositions)
+    {
+      m_transform.setPosition(p);
+      loadMatricesToShader();
+      prim->draw("sphere");
+      m_transform.reset();
+    }
+    m_transform.reset();
+
 }
 
 void LemonScene::loadMatricesToShader()
@@ -268,9 +296,77 @@ void LemonScene::keyPressEvent( QKeyEvent* _event )
     case Qt::Key_4 :
       m_currentShader = DispColour;
     break;
+    case Qt::Key_5 :
+      m_currentShader = PhongMapped;
+    break;
+    case Qt::Key_6 :
+      m_currentShader = PBRMapped;
+    break;
     default:
       break;
   }
   update();
 }
 
+void LemonScene::initTextureWriter(GLuint _texID, GLuint _FBO)
+{
+  //call this once for every FBO ID
+
+  glGenFramebuffers(1, &_FBO);
+  glBindFramebuffer(GL_FRAMEBUFFER, _FBO);
+
+  glGenTextures(1, &_texID);
+  glBindTexture(GL_TEXTURE_2D, _texID);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_win.width, m_win.height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _texID, 0);
+}
+
+void LemonScene::generateNoiseTexture(GLuint _texID)
+{
+      //call this only after initTextureWriter
+
+      glViewport( 0, 0, m_win.width, m_win.width );
+      glClearColor( 1, 1, 1, 1.0f );
+      glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+      ngl::ShaderLib *shader=ngl::ShaderLib::instance();
+      ngl::VAOPrimitives *prim=ngl::VAOPrimitives::instance();
+
+      // Rotation based on the mouse position for our global transform
+      ngl::Mat4 rotX;
+      ngl::Mat4 rotY;
+      // create the rotation matrices
+      rotX.rotateX( m_win.spinXFace );
+      rotY.rotateY( m_win.spinYFace );
+      // multiply the rotations
+      m_mouseGlobalTX = rotX * rotY;
+      // add the translations
+      m_mouseGlobalTX.m_m[ 3 ][ 0 ] = m_modelPos.m_x;
+      m_mouseGlobalTX.m_m[ 3 ][ 1 ] = m_modelPos.m_y;
+      m_mouseGlobalTX.m_m[ 3 ][ 2 ] = m_modelPos.m_z;
+
+      glActiveTexture( GL_TEXTURE0 );
+      glBindTexture( GL_TEXTURE_2D, _texID);
+
+      glTexParameteri( GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR );
+      glTexParameteri( GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR );
+      glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );
+      glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT );
+      glGenerateMipmap( GL_TEXTURE_2D );
+
+      (*shader)["NoiseDisplay"]->use();
+
+      //make scene here
+      m_transform.reset();
+      m_transform.setRotation(ngl::Vec3(90,0,0));
+      m_transform.setScale(ngl::Vec3(2.f,2.f,2.f));
+
+      loadMatricesToShader();
+
+      prim->draw("plane1");
+      m_transform.reset();
+}
+
+//------------------------------------------------------------------------------------------------------------------------------

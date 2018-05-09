@@ -23,7 +23,9 @@ OTHER_FILES += $$files($$PWD/shaders/simplePhong/*.glsl) \
                $$files($$PWD/shaders/noiseShader/*.glsl) \
                $$files($$PWD/shaders/testShaders/*.glsl) \
                $$files($$PWD/shaders/dispColour/*.glsl) \
-               $$files($$PWD/shaders/lemonPBR/*.glsl)
+               $$files($$PWD/shaders/lemonPBR/*.glsl) \
+               $$files($$PWD/shaders/lemonPBRMapped/*.glsl) \
+               $$files($$PWD/shaders/lemonPhongMapped/*.glsl)
 # and add the include dir into the search path for Qt and make
 INCLUDEPATH +=./include
 # where our exe is going to live (root of project)

@@ -19,7 +19,7 @@
 /// put in this file
 //----------------------------------------------------------------------------------------------------------------------
 
-enum ShaderType { Phong, PBR, TessTest, NoiseDisplay, DispColour };
+enum ShaderType { Phong, PBR, TessTest, NoiseDisplay, DispColour, PhongMapped, PBRMapped };
 
 class LemonScene : public QOpenGLWindow
 {
@@ -86,6 +86,10 @@ private:
   /// @brief method to load transform matrices to the shader
   //----------------------------------------------------------------------------------------------------------------------
   void loadMatricesToShader();
+
+  void initTextureWriter(GLuint _texID, GLuint _FBO);
+  void generateNoiseTexture(GLuint _texID);
+
   //----------------------------------------------------------------------------------------------------------------------
   /// @brief Qt Event called when a key is pressed
   /// @param [in] _event the Qt event to query for size etc
