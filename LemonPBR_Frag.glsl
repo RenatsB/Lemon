@@ -1,9 +1,9 @@
 #version 430 core
 const float texCoordScale = 10.0;
 //these colours are slightly different from the ones used in Phong version
-const vec3 yellow = vec3(255.0/255.0, 228.0/255.0, 0.0/255.0);
-const vec3 grayish = vec3(68.0/255.0, 68.0/255.0, 53.0/255.0);
-const vec3 white = vec3(242/255.0, 242/255.0, 225/255.0);
+const vec3 yellow = vec3(1.0, 0.87, 0.09);
+const vec3 grayish = vec3(0.1, 0.1, 0.05);
+const vec3 white = vec3(0.9, 0.9, 0.82);
 const vec3 green = vec3(0,1,0);
 
 const ivec3 off = ivec3(-1,0,1);
@@ -202,10 +202,15 @@ void main()
 
     vec3 Nreg = normalize(FragmentNormal);
     vec3 V = normalize(camPos - FragmentPosition);
+    float specPow = 1.0f;
     float freq = 0.025f;
     int nscale = 12;
     if(specnoise>0)
-      freq = 0.5f;
+    {
+    freq = 0.5f;
+    specPow = 1.f - specnoise;
+    }
+
 
     float f = sumOctave(FragmentTexCoord*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
 
@@ -233,25 +238,28 @@ void main()
 
     vec3 texColor = yellow;
 
-    texColor = normalize(mix(texColor, grayish, specnoise*1000.f));
 
+    float dst = distance(RawPosition.xz,vec2(0));
 
-    //if(distance(RawPosition.xz,vec2(0)) < 0.3f && RawPosition.y > 0)
-    //texColor = mix(texColor, green, vec3((0.3f - distance(RawPosition.xz,vec2(0)))));
+    if(dst < 0.7f && RawPosition.y > 0)
+      texColor = mix(yellow, green, (0.7f - dst)*FragmentTexCoord.y/1.25f);
+    //texColor = normalize(mix(texColor,
+                //  normalize(mix(green, white, vec3((0.15f - distance(RawPosition.xz,vec2(0)))*(FragmentTexCoord.y-0.9)))), vec3((0.3f - distance(RawPosition.xz,vec2(0)))*FragmentTexCoord.y)));
 
-    //if(distance(RawPosition.xz,vec2(0)) < 0.15f && RawPosition.y > 0)
-      //texColor = mix(texColor, white, vec3((0.15f - distance(RawPosition.xz,vec2(0)))));
+    if(dst < 0.075f && RawPosition.y > 0)
+      texColor = mix(grayish, white, (0.075f - dst)*FragmentTexCoord.y*15.f);
 
-    //if(distance(RawPosition.xz,vec2(0)) < 0.15f && RawPosition.y < 0)
-     // texColor = mix(yellow, green, vec3((0.15f - distance(RawPosition.xz,vec2(0)))));
+    if(dst < 0.35f && RawPosition.y < 0)
+      texColor = mix(yellow, green, (0.35f - dst)*(1.f-FragmentTexCoord.y)*2.f);
 
-    //if(distance(RawPosition.xz,vec2(0)) < 0.015f && RawPosition.y < 0)
-     // texColor = mix(texColor, grayish, (0.015f-distance(RawPosition.xz,vec2(0)))*100.f);
+    if(dst < 0.015f && RawPosition.y < 0)
+      texColor = mix(texColor, grayish, (0.015f-dst)*100.f);
 
+    texColor = mix(texColor, grayish, specnoise*1000.f);
     // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0
     // of 0.04 and if it's a metal, use their albedo color as F0 (metallic workflow)
     vec3 F0 = vec3(0.04);
-    F0 = mix(F0, texColor, metallic);
+    F0 = mix(F0, texColor, metallic*specPow);
 
     // reflectance equation
     vec3 Lo = vec3(0.0);
@@ -265,13 +273,13 @@ void main()
         vec3 radiance = lightColors[i] * attenuation;
 
         // Cook-Torrance BRDF
-        float NDF = DistributionGGX(N, H, roughness);
-        float G   = GeometrySmith(N, V, L, roughness);
+        float NDF = DistributionGGX(N, H, roughness*specPow);
+        float G   = GeometrySmith(N, V, L, roughness*specPow);
         vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);
 
         vec3 nominator    = NDF * G * F;
         float denominator = 4 * max(dot(V, N), 0.0) * max(dot(L, N), 0.0) + 0.001; // 0.001 to prevent divide by zero.
-        vec3 specular = nominator / denominator;
+        vec3 specular = nominator*specPow / denominator;
         //specular = bump.rgb;
 
         // kS is equal to Fresnel
@@ -283,7 +291,7 @@ void main()
         // multiply kD by the inverse metalness such that only non-metals
         // have diffuse lighting, or a linear blend if partly metal (pure metals
         // have no diffuse light).
-        kD *= 1.0 - metallic;
+        kD *= 1.0 - metallic*specPow;
 
         // scale light by NdotL
         float NdotL = max(dot(N, L), 0.0);
