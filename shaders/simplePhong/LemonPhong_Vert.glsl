@@ -136,8 +136,8 @@ void main() {
       displacement -= (0.1-distance(strPos.xz, vec2(0)))/2.5f;
 
     // Transform the vertex normal by the inverse transpose modelview matrix
-    FragmentNormal = normalize(N * strNormal);
-    //FragmentNormal = strNormal; //if you want to "freeze" the normals
+    //FragmentNormal = normalize(N * strNormal);
+    FragmentNormal = strNormal; //if you want to "freeze" the normals
 
     // Compute the unprojected vertex position
     FragmentPosition = vec3(MV * vec4(strPos, 1.0) );

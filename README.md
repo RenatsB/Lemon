@@ -28,7 +28,7 @@ ___
 
 ## **List Of Shaders**
 
-### Here is a short list of shader manes used in this project
+### Here is a short list of shader names used in this project
 - Phong:"LemonPhong" [0]
 - PBR: "LemonPBR" [1]
 - TessTest: "TessTest" [2] (broken)

@@ -21,7 +21,6 @@ SOURCES += $$files($$PWD/src/*.cpp)
 OTHER_FILES += $$files($$PWD/shaders/simplePhong/*.glsl) \
                $$files($$PWD/shaders/tessellationTest/*.glsl) \
                $$files($$PWD/shaders/noiseShader/*.glsl) \
-               $$files($$PWD/shaders/testShaders/*.glsl) \
                $$files($$PWD/shaders/dispColour/*.glsl) \
                $$files($$PWD/shaders/lemonPBR/*.glsl) \
                $$files($$PWD/shaders/lemonPBRMapped/*.glsl) \
@@ -31,9 +30,7 @@ INCLUDEPATH +=./include
 # where our exe is going to live (root of project)
 DESTDIR=./
 # add the glsl shader files
-OTHER_FILES+= shaders/*.glsl \
-              backupCode.txt \
-              README.md
+OTHER_FILES+= README.md
 # were are going to default to a console app
 CONFIG += console
 # note each command you add needs a ; as it will be run as a single line

@@ -131,10 +131,11 @@ void main()
 
   // Transform the vertex normal by the inverse transpose modelview matrix
   FragmentNormal = normalize(N * strNormal);
-  //FragmentNormal = strNormal; //if you want to "freeze" the normals
+  //FragmentNormal = strNormal;
 
   // Compute the unprojected vertex position
   FragmentPosition = vec3(MV * vec4(strPos, 1.0) );
+  //FragmentPosition = strPos;
 
   RawPosition = strPos;
 

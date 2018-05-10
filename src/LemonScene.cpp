@@ -164,6 +164,7 @@ void LemonScene::initializeGL()
 void LemonScene::paintGL()
 {
     glViewport(0,0,m_win.width,m_win.height);
+    glClearColor( 0.5, 0.5, 0.5, 1.0f );
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Use our shader for this draw
@@ -194,8 +195,8 @@ void LemonScene::paintGL()
     }
     shader->setUniform("albedo",1.0f, 1.0f, 1.0f);
     shader->setUniform("ao",1.0f);
-    shader->setUniform("metallic",0.62f);
-    shader->setUniform("roughness",0.12f);
+    shader->setUniform("metallic",0.46f);
+    shader->setUniform("roughness",0.15f);
     shader->setUniform("camPos",m_cam.getEye().toVec3());
     shader->setUniform("exposure",1.0f);
     if(m_currentShader==PBR)

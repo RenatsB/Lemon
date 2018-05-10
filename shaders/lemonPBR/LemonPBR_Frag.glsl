@@ -195,8 +195,10 @@ float sumOctave(in vec2 pos,
     noise = noise*(high-low)*0.5f + (high+low)*0.5f;
     return noise;
 }
+
 void main()
 {
+    //calculate the small dark spots
     float specnoise = sumOctave(FragmentTexCoord*12.f, 12, 0.105f, 1.0f, 0.4f, 0.8f);
     specnoise = smoothstep(specnoise, 0.0f, 0.77f);
 
@@ -211,19 +213,21 @@ void main()
     specPow = 1.f - specnoise;
     }
 
-
+    //get current fragment noise
     float f = sumOctave(FragmentTexCoord*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
 
     float s11 = f;
+    //get surrounding fragment noise values
     float s01 = sumOctave((FragmentTexCoord+off.xy)*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
     float s21 = sumOctave((FragmentTexCoord+off.zy)*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
     float s10 = sumOctave((FragmentTexCoord+off.yx)*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
     float s12 = sumOctave((FragmentTexCoord+off.yz)*texCoordScale, nscale, freq, 10.0f, 0.25f, 1.f);
 
+    //create a bump vector based off the acquired noise data
     vec3 va = normalize(vec3(size.xy,s21-s01));
     vec3 vb = normalize(vec3(size.yx,s12-s10));
     vec4 bump = vec4( cross(va,vb), s11 );
-
+    //set normal perturbation target
     vec3 tgt = normalize(bump.rgb);
 
     // The source is just up in the Z-direction
@@ -241,20 +245,25 @@ void main()
 
     float dst = distance(RawPosition.xz,vec2(0));
 
+    //top green area
     if(dst < 0.7f && RawPosition.y > 0)
       texColor = mix(yellow, green, (0.7f - dst)*FragmentTexCoord.y/1.25f);
     //texColor = normalize(mix(texColor,
                 //  normalize(mix(green, white, vec3((0.15f - distance(RawPosition.xz,vec2(0)))*(FragmentTexCoord.y-0.9)))), vec3((0.3f - distance(RawPosition.xz,vec2(0)))*FragmentTexCoord.y)));
 
+    //top whipe circle with dark rim
     if(dst < 0.075f && RawPosition.y > 0)
       texColor = mix(grayish, white, (0.075f - dst)*FragmentTexCoord.y*15.f);
 
+    //bottom green area
     if(dst < 0.35f && RawPosition.y < 0)
       texColor = mix(yellow, green, (0.35f - dst)*(1.f-FragmentTexCoord.y)*2.f);
 
+    //bottom dark tip
     if(dst < 0.015f && RawPosition.y < 0)
       texColor = mix(texColor, grayish, (0.015f-dst)*100.f);
 
+    //change colour at the dark spots
     texColor = mix(texColor, grayish, specnoise*1000.f);
     // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0
     // of 0.04 and if it's a metal, use their albedo color as F0 (metallic workflow)
@@ -307,7 +316,7 @@ void main()
     vec3 color = ambient + Lo;
 
     // HDR tonemapping
-    //color = color / (color + vec3(1.0));
+    color = color / (color + vec3(1.0));
     // gamma correct
     color = pow(color, vec3(1.0/2.2));
 
